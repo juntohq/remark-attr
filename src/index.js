@@ -3,9 +3,9 @@
 const parseAttr = require('md-attr-parser');
 const htmlElemAttr = require('html-element-attributes');
 
-const supportedElements = ['link', 'atxHeading', 'strong', 'emphasis', 'deletion', 'code', 'setextHeading', 'fencedCode', 'reference', 'paragraph'];
+const supportedElements = ['link', 'atxHeading', 'strong', 'emphasis', 'deletion', 'code', 'setextHeading', 'fencedCode', 'reference', 'paragraph', 'blockquote'];
 const blockElements = ['atxHeading', 'setextHeading'];
-const particularElements = ['fencedCode', 'paragraph'];
+const particularElements = ['fencedCode', 'paragraph', 'blockquote'];
 
 const particularTokenize = {};
 
@@ -23,6 +23,7 @@ const convTypeTag = {
   code: 'code',
   linkReference: 'a',
   paragraph: 'p',
+  blockquote: 'blockquote',
   '*': '*',
 };
 
@@ -294,8 +295,57 @@ function tokenizeParagraph(oldParser, config) {
   return token;
 }
 
+function tokenizeBlockquote(oldParser) {
+  function token(eat, value, silent) {
+    // This we call the old tokenize
+    const self = this;
+    const eaten = oldParser.call(self, eat, value, silent);
+
+    if (!eaten || !eaten.position ||
+        !eaten.children || eaten.children.length === 0) {
+      return undefined;
+    }
+
+    const lastChild = eaten.children[eaten.children.length - 1];
+
+    if (!lastChild || !lastChild.type) {
+      return undefined;
+    }
+
+    function getData(child) {
+      let data = {...child.data} || {};
+
+      if (child.children) {
+        child.children.forEach(newChild => {
+          data = {...data, ...getData(newChild)};
+        });
+      }
+
+      return data;
+    }
+
+    const data = getData(lastChild);
+
+    if (data && data.hProperties) {
+      const newHProperties = {...data.hProperties};
+      if (eaten.data) {
+        eaten.data.hProperties = newHProperties;
+      } else {
+        eaten.data = {
+          hProperties: newHProperties,
+        };
+      }
+    }
+
+    return eaten;
+  } // Return the new tokenizer function
+
+  return token;
+}
+
 particularTokenize.fencedCode = tokenizeFencedCode;
 particularTokenize.paragraph = tokenizeParagraph;
+particularTokenize.blockquote = tokenizeBlockquote;
 
 remarkAttr.SUPPORTED_ELEMENTS = supportedElements;
 

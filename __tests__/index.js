@@ -9,7 +9,7 @@ import stringify from 'rehype-stringify';
 import remark2rehype from 'remark-rehype';
 import unified from 'unified';
 import parse5 from 'parse5';
-import plugin from '..';
+import plugin from '../src';
 
 const renderDefault = text => unified()
   .use(reParse)
@@ -178,6 +178,31 @@ Another without.
   const {contents} = renderFootnotes(footnotes);
   t.deepEqual(parse(contents), parse(`<p class="with some extra classes">This is a nice little paragraph.</p>
 <p>Another without.</p>`));
+});
+
+test('blockquote', t => {
+  const footnotes = `> This is a nice little blockquote.
+> Another part of the same quote
+{#myBQ}
+
+> A separate quote
+>
+> 1. With a
+> 2. list
+{#myBQ}
+`;
+  const {contents} = renderFootnotes(footnotes);
+  t.deepEqual(parse(contents), parse(`<blockquote id="myBQ">
+<p id="myBQ">This is a nice little blockquote.
+Another part of the same quote</p>
+</blockquote>
+<blockquote id="myBQ">
+<p>A separate quote</p>
+<ol>
+<li>With a</li>
+<li>list</li>
+</ol>
+</blockquote>`));
 });
 
 /* Readme tests
