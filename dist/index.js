@@ -10,9 +10,9 @@ var parseAttr = require('md-attr-parser');
 
 var htmlElemAttr = require('html-element-attributes');
 
-var supportedElements = ['link', 'atxHeading', 'strong', 'emphasis', 'deletion', 'code', 'setextHeading', 'fencedCode', 'reference', 'paragraph'];
+var supportedElements = ['link', 'atxHeading', 'strong', 'emphasis', 'deletion', 'code', 'setextHeading', 'fencedCode', 'reference', 'paragraph', 'blockquote'];
 var blockElements = ['atxHeading', 'setextHeading'];
-var particularElements = ['fencedCode', 'paragraph'];
+var particularElements = ['fencedCode', 'paragraph', 'blockquote'];
 var particularTokenize = {};
 
 var DOMEventHandler = require('./dom-event-handler.js');
@@ -30,6 +30,7 @@ var convTypeTag = {
   code: 'code',
   linkReference: 'a',
   paragraph: 'p',
+  blockquote: 'blockquote',
   '*': '*'
 };
 /* This function is a generic function that transform
@@ -328,8 +329,58 @@ function tokenizeParagraph(oldParser, config) {
   return token;
 }
 
+function tokenizeBlockquote(oldParser) {
+  function token(eat, value, silent) {
+    // This we call the old tokenize
+    var self = this;
+    var eaten = oldParser.call(self, eat, value, silent);
+
+    if (!eaten || !eaten.position || !eaten.children || eaten.children.length === 0) {
+      return undefined;
+    }
+
+    var lastChild = eaten.children[eaten.children.length - 1];
+
+    if (!lastChild || !lastChild.type) {
+      return undefined;
+    }
+
+    function getData(child) {
+      var data = _objectSpread({}, child.data) || {};
+
+      if (child.children) {
+        child.children.forEach(function (newChild) {
+          data = _objectSpread({}, data, {}, getData(newChild));
+        });
+      }
+
+      return data;
+    }
+
+    var data = getData(lastChild);
+
+    if (data && data.hProperties) {
+      var newHProperties = _objectSpread({}, data.hProperties);
+
+      if (eaten.data) {
+        eaten.data.hProperties = newHProperties;
+      } else {
+        eaten.data = {
+          hProperties: newHProperties
+        };
+      }
+    }
+
+    return eaten;
+  } // Return the new tokenizer function
+
+
+  return token;
+}
+
 particularTokenize.fencedCode = tokenizeFencedCode;
 particularTokenize.paragraph = tokenizeParagraph;
+particularTokenize.blockquote = tokenizeBlockquote;
 remarkAttr.SUPPORTED_ELEMENTS = supportedElements;
 module.exports = remarkAttr;
 /* Function that is exported */
